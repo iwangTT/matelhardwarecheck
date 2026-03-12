@@ -1,24 +1,49 @@
-#bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-tt-smi-metal -s | grep -i "fw_bundle_version"
+# ─── Helpers ────────────────────────────────────────────────────────────────
+SEP="────────────────────────────────────────────────────"
 
-tt-smi-metal -v
+section() { echo; echo "=== $1 ==="; echo "$SEP"; }
 
-modinfo tenstorrent | grep version
+run_if_available() {
+    local cmd="$1"; shift
+    if command -v "$cmd" &>/dev/null; then
+        "$cmd" "$@"
+    else
+        echo "(skipped: '$cmd' not found)"
+    fi
+}
 
-tt-flash --version
+# ─── Tenstorrent ─────────────────────────────────────────────────────────────
+section "TT-SMI Firmware Bundle Version"
+run_if_available tt-smi-metal -s | grep -i "fw_bundle_version" || true
 
-weka version
+section "TT-SMI Version"
+run_if_available tt-smi-metal -v
 
-lsb_release -a
+section "Tenstorrent Kernel Module"
+modinfo tenstorrent 2>/dev/null | grep version || echo "(module not loaded)"
 
+section "TT-Flash Version"
+run_if_available tt-flash --version
+
+# ─── Weka ─────────────────────────────────────────────────────────────────────
+section "Weka Version"
+run_if_available weka version
+
+section "Weka Agent Status"
+systemctl status weka-agent --no-pager 2>/dev/null || echo "(weka-agent not active)"
+
+section "Weka Mounts"
+mount | grep weka || echo "(no weka mounts found)"
+
+section "MLPerf Mount"
+ls -la /mnt/MLPerf 2>/dev/null || echo "(/mnt/MLPerf not accessible)"
+
+# ─── OS & Memory ──────────────────────────────────────────────────────────────
+section "OS Info"
+lsb_release -a 2>/dev/null
+
+section "Memory Summary"
 free -h
-
-cat /proc/meminfo
-
-systemctl status weka-agent
-
-mount | grep weka
-
-ls -la /mnt/MLPerf
-
